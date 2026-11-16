@@ -1,0 +1,33 @@
+// What:  compiler settings shared by every workspace (api/ now, web/ in Part 2).
+// Why:   one strictness baseline for the whole repo, so no package quietly opts out.
+// How:   each workspace's tsconfig.json `extends` this file and adds only what
+//        differs (runtime libs, include paths).
+{
+  "compilerOptions": {
+    // Language level: Node 22+ and evergreen browsers both support ES2023 natively,
+    // so nothing is down-levelled and stack traces map 1:1 to source.
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    // Module system: real Node ESM semantics — relative imports need explicit `.js`
+    // extensions, exactly as Node resolves them at runtime (no bundler magic).
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true, // `import type` is erased; value imports are kept verbatim
+    "isolatedModules": true, // every file transpilable on its own (tsx, Vite, Vitest rely on this)
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+
+    // Strictness — the point of TypeScript. `noUncheckedIndexedAccess` makes
+    // `rows[0]` typed as `T | undefined`, which catches "query returned no rows" bugs.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true, // Windows is case-insensitive, Linux CI is not
+
+    // Don't type-check third-party .d.ts files: faster, and their internal
+    // inconsistencies are not ours to fix.
+    "skipLibCheck": true
+  }
+}

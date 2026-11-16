@@ -1,0 +1,10 @@
+# What: line-ending policy for the repository.
+# Why:  this repo is authored on Windows but reviewed anywhere; storing LF in
+#       Git means diffs, shell scripts and snapshot tests behave identically on
+#       macOS/Linux/Windows regardless of each machine's core.autocrlf setting.
+# How:  Git auto-detects text files and normalizes them to LF on commit.
+* text=auto eol=lf
+
+# Windows batch scripts are the one exception — cmd.exe expects CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf

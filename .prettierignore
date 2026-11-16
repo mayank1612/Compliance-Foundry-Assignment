@@ -1,0 +1,10 @@
+# What: paths Prettier must not format.
+# Why:  generated files are rewritten by their generators; lockfiles are owned
+#       by npm; .claude/ holds hand-curated team notes; the brief is not ours.
+package-lock.json
+**/dist/
+**/coverage/
+**/.pglite/
+api/src/db/types.ts
+.claude/
+/Senior Full-Stack Developer*.md

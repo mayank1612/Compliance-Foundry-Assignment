@@ -1,0 +1,45 @@
+# -----------------------------------------------------------------------------
+# What: files Git must never track for this repo.
+# Why:  keeps the submission small and reproducible (deps/builds are regenerated
+#       by `npm install` / `npm run build`) and keeps secrets out of history.
+# Who:  applies to every contributor and to the reviewer cloning the repo.
+# -----------------------------------------------------------------------------
+
+# Dependencies — reinstalled from package-lock.json, never committed.
+node_modules/
+
+# Build / test artefacts — regenerated on demand.
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Local environment + secrets. Only the documented template is tracked.
+.env
+.env.*
+!.env.example
+
+# Local embedded-Postgres (PGlite) data directory, if we use it — it is
+# disposable state recreated by the migrate + seed scripts.
+.pglite/
+
+# Logs.
+*.log
+npm-debug.log*
+
+# OS / editor noise.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code machine-local settings. The shared notes in .claude/memory/
+# are intentionally tracked (team-owned runbooks).
+.claude/settings.local.json
+
+# Local reference material — NOT part of the submission.
+# The assessment brief is the company's text (the README summarises the task
+# instead), and image.png is a scratch screenshot used during planning.
+/Senior Full-Stack Developer*.md
+/image.png

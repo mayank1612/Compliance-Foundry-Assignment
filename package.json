@@ -1,0 +1,31 @@
+{
+  "name": "compliance-foundry-task-board",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant project-management platform (take-home): Postgres schema, Node GraphQL API, React task board.",
+  "type": "module",
+  "workspaces": [
+    "api"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "setup": "npm run db:migrate -w api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run db:codegen -w api -- --verify && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}

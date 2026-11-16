@@ -1,0 +1,18 @@
+// What:  TypeScript settings for the API workspace.
+// Why:   inherits the repo-wide strict baseline; only adds Node runtime types
+//        and the folders that belong to this package.
+// When:  used by `npm run typecheck -w api`, by ESLint's type-aware rules, and
+//        by editors. Runtime execution goes through tsx (no emit needed yet).
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // TypeScript 6 no longer auto-includes every @types package — list the
+    // ambient types we rely on explicitly (Node built-ins: fs, path, http…).
+    "types": ["node"],
+    // Type-check only. A production build config (emitting to dist/) is added
+    // with the GraphQL server in Part 2.
+    "noEmit": true
+  },
+  // Source, tests and the Vitest config are all type-checked and linted.
+  "include": ["src", "test", "vitest.config.ts"]
+}

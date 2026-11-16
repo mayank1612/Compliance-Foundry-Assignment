@@ -1,0 +1,32 @@
+# What: continuous integration for every push to main and every pull request.
+# Why:  the exact gate a developer runs locally (`npm run check`) also guards every
+#       change: typecheck → lint → formatting → generated DB types are fresh → tests.
+#       No Postgres service container is needed — tests boot embedded PGlite.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes an in-flight run pointless — cancel it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same Node major as local development (.nvmrc); npm cache keyed on the lockfile.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci` installs exactly what package-lock.json records (no silent upgrades).
+      - run: npm ci
+      - run: npm run check
