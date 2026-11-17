@@ -55,6 +55,7 @@ This document records every technology used in the submission: what it is, why w
 - **One connection only.** PGlite is a single Postgres _session_. The socket server could accept several clients, but they would share that one session, so one request's open transaction or `SET LOCAL ROLE` would leak into another's queries. We therefore cap both the socket server and the pool at one connection, and queries run one at a time. That's fine for a demo and for tests, but **PGlite timings must not be quoted as production performance** (relevant to the Part 3 RFC).
 - **The default user is a superuser, and superusers bypass row-level security.** Each request transaction switches to a non-privileged role (`SET LOCAL ROLE app_user`) before querying, which also matches how production should run.
 - **Newer, smaller ecosystem than the official Docker image.** If a PGlite issue blocks us, the `DATABASE_URL` path is the fallback.
+- **No always-on server and no data-folder lock.** Desktop tools such as DBeaver need `npm run db:serve` to expose the database on a fixed port. Unlike a Postgres server (which uses `postmaster.pid`), PGlite doesn't stop two processes from opening the same files, so we added a lock file (`api/src/db/data-dir-lock.ts`). It refuses a second process and recovers from crashes.
 
 ```ts
 // Condensed from api/src/db/embedded.ts + database.ts.

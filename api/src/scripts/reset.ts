@@ -13,6 +13,7 @@
 import { rm } from 'node:fs/promises';
 import { isAbsolute, relative } from 'node:path';
 import { loadEnv } from '../config/env.js';
+import { acquireDataDirLock } from '../db/data-dir-lock.js';
 import { openDatabaseFromEnv } from '../db/database.js';
 import { logMigrationResults, migrateToLatest } from '../db/migrator.js';
 import { API_ROOT } from '../paths.js';
@@ -36,7 +37,14 @@ await runScript(LOG, async () => {
     throw new Error(`refusing to delete ${env.PGLITE_DATA_DIR}: it is not inside ${API_ROOT}`);
   }
 
-  await rm(env.PGLITE_DATA_DIR, { recursive: true, force: true });
+  // Guard 3: never delete files out from under a running process (db:serve, the
+  // dev server). Holding the data-directory lock proves nobody else has them open.
+  const releaseLock = await acquireDataDirLock(env.PGLITE_DATA_DIR);
+  try {
+    await rm(env.PGLITE_DATA_DIR, { recursive: true, force: true });
+  } finally {
+    await releaseLock(); // openDatabaseFromEnv below claims it again
+  }
   console.log(`${LOG} deleted api/${relativeDataDir}`);
 
   const database = await openDatabaseFromEnv(env, LOG);

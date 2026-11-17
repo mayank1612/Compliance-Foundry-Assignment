@@ -12,6 +12,7 @@
   },
   "scripts": {
     "setup": "npm run db:migrate -w api",
+    "db:serve": "npm run db:serve -w api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",

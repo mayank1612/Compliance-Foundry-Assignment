@@ -39,6 +39,11 @@ const EnvSchema = z.object({
     .default('.pglite')
     .transform((dir) => (isAbsolute(dir) ? dir : resolve(API_ROOT, dir))),
 
+  // Fixed port `npm run db:serve` exposes the embedded database on, for desktop
+  // tools (DBeaver, psql). Deliberately not 5432, so it never collides with a
+  // locally installed Postgres.
+  PGLITE_PORT: z.coerce.number().int().min(1024).max(65535).default(54320),
+
   // Connection-pool size for a real Postgres server. Ignored for PGlite, which is
   // pinned to 1 (see db/database.ts for why).
   DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),

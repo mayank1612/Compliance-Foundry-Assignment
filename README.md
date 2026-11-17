@@ -22,6 +22,25 @@ npm run check   # typecheck, lint, format, generated-types check, tests
 
 To use a real PostgreSQL server instead, copy `api/.env.example` to `api/.env` and set `DATABASE_URL`.
 
+### Inspecting the database (DBeaver, psql, …)
+
+PGlite runs inside a Node process, so there's no always-on server to connect to. `npm run db:serve` provides one: it opens the dev database (`api/.pglite`), applies pending migrations, and serves it until you press Ctrl+C.
+
+| Setting             | Value                                                                         |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Host                | `127.0.0.1`                                                                   |
+| Port                | `54320` (`PGLITE_PORT` to change it)                                          |
+| Database            | `postgres`                                                                    |
+| Username / password | `postgres` / `postgres`. Not checked: the server only listens on this machine |
+
+In DBeaver, choose **New Database Connection → PostgreSQL** and enter the values above. Keep in mind:
+
+- **Leave auto-commit on** (DBeaver's default). All tool connections share PGlite's single Postgres session, so a manual-commit transaction or a session-level `SET` would affect every DBeaver tab.
+- **You're the superuser, which bypasses row-level security.** To see what a given user can see, run this as one script:
+  `BEGIN; SET LOCAL ROLE app_user; SELECT set_config('app.user_id', '<user id>', true); SELECT * FROM tasks; ROLLBACK;`
+- **Other `db:*` commands refuse to run while `db:serve` holds the database.** PGlite has no built-in guard against two processes writing the same files, so a lock file (`api/.pglite.lock`) provides one.
+- **If DBeaver reports an SSL error**, set SSL mode to `disable` in the connection's SSL tab.
+
 ## Repository layout
 
 ```

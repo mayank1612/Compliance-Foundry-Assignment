@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:reset": "tsx src/scripts/reset.ts",
+    "db:serve": "tsx src/scripts/serve.ts",
     "db:codegen": "tsx src/scripts/codegen.ts"
   },
   "dependencies": {

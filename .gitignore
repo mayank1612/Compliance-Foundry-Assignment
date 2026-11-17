@@ -43,3 +43,7 @@ Thumbs.db
 # instead), and image.png is a scratch screenshot used during planning.
 /Senior Full-Stack Developer*.md
 /image.png
+
+# Lock file claiming the PGlite data directory for one process at a time
+# (api/src/db/data-dir-lock.ts). Machine-local, recreated on demand.
+.pglite.lock
