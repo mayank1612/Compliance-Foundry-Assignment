@@ -18,11 +18,11 @@
 | `0004_comments_and_activity.sql` | `task_comments`; `task_activities` (append-only history, written by triggers)                                                             |
 | `0005_access_control.sql`        | Column-level grants and row-level security policies, with the permission matrix                                                           |
 
-**Schema v1 is frozen** once it's committed: the Task 1.3 critique reviews exactly this version, and fixes ship as new migrations (`0006_…`).
+**Schema v1 is frozen** (git tag `schema-v1`): the Task 1.3 critique reviews exactly this version, and fixes ship as new migrations (`0006_…`).
 
 ## Task 1.2: Technical documentation
 
-_Pending._
+[`technical-design.md`](technical-design.md) covers data model rationale and an entity-relationship diagram, query patterns (with verified query plans), indexing and performance, multi-tenancy isolation, and migration strategy.
 
 ## Task 1.3: AI critique and analysis
 
