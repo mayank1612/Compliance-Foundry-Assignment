@@ -1,0 +1,810 @@
+# =============================================================================
+# Task Board platform — GraphQL API design (schema v1, Task 1.1)
+# =============================================================================
+# What: the complete public API contract for the multi-tenant project-management
+#       platform. Part 2 implements the Task Board slice of it
+#       (api/src/graphql/schema.graphql), field-for-field compatible with this file.
+# Data model behind it: api/db/migrations/0001–0005 (PostgreSQL 18).
+#
+# Conventions
+#   * IDs are the database's UUIDv7 primary keys, exposed as opaque `ID`s.
+#   * Lists that can grow without bound are cursor-paginated connections
+#     (`first` / `after`, Relay style). Small bounded lists — a project's statuses,
+#     a task's labels — are plain lists.
+#   * Every mutation takes one `input` object and returns a payload object, so
+#     either side can gain fields later without breaking clients.
+#   * Errors use the standard GraphQL `errors` array with `extensions.code`:
+#     UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, BAD_USER_INPUT, CONFLICT.
+#     Anything the caller may not see is reported as NOT_FOUND — the API never
+#     confirms that another tenant's IDs exist.
+#   * Enum values are UPPER_CASE here and lower_case in Postgres; the API maps them.
+# =============================================================================
+
+"""
+Documents the minimum organization role needed to use a field, evaluated against
+the organization that owns the object. Enforced twice: in the resolver (clear
+error messages) and by row-level security in Postgres (defence in depth).
+Fields without it require VIEWER, i.e. any membership.
+"""
+directive @requiresRole(role: OrganizationRole!) on FIELD_DEFINITION
+
+# -----------------------------------------------------------------------------
+# Scalars
+# -----------------------------------------------------------------------------
+
+"An instant in time: ISO-8601 with offset, e.g. `2026-11-16T09:30:00Z`."
+scalar DateTime
+
+"""
+A calendar date with no time or zone: `YYYY-MM-DD`. Used for due dates — "due on
+the 20th" must not shift when viewed from another time zone.
+"""
+scalar Date
+
+# -----------------------------------------------------------------------------
+# Enums
+# -----------------------------------------------------------------------------
+
+"A member's role within one organization, in ascending order of power."
+enum OrganizationRole {
+  "Read-only access to everything in the organization."
+  VIEWER
+  "Creates and edits tasks, comments and labels."
+  MEMBER
+  "Also manages projects, statuses, settings and non-owner members."
+  ADMIN
+  "Full control, including owners and deleting the organization."
+  OWNER
+}
+
+"Task priority, lowest to highest."
+enum TaskPriority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+"""
+What a (custom) status means. Projects name their statuses freely ("QA",
+"Blocked"…); each maps to one category, which drives open/overdue/completed logic.
+"""
+enum StatusCategory {
+  BACKLOG
+  UNSTARTED
+  STARTED
+  COMPLETED
+  CANCELED
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}
+
+enum TaskSortField {
+  "Manual board order. Only meaningful within one status column."
+  RANK
+  PRIORITY
+  DUE_DATE
+  CREATED_AT
+  UPDATED_AT
+  "The per-project sequence number (WEB-1, WEB-2, …)."
+  NUMBER
+}
+
+# -----------------------------------------------------------------------------
+# Pagination
+# -----------------------------------------------------------------------------
+
+"Cursor pagination state. Cursors are opaque; pass `endCursor` as `after`."
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+# -----------------------------------------------------------------------------
+# Identity & tenancy
+# -----------------------------------------------------------------------------
+
+type User {
+  id: ID!
+  displayName: String!
+  "Visible to the user and to people who share an organization with them."
+  email: String!
+  avatarUrl: String
+}
+
+"The signed-in user and their organizations."
+type Viewer {
+  user: User!
+  memberships: [OrganizationMember!]!
+}
+
+"A tenant (a.k.a. workspace). Everything else belongs to exactly one organization."
+type Organization {
+  id: ID!
+  name: String!
+  "URL identifier, e.g. `acme` in app.example.com/acme."
+  slug: String!
+  createdAt: DateTime!
+  "The signed-in user's role here — drives which controls the UI shows."
+  viewerRole: OrganizationRole!
+  settings: OrganizationSettings!
+  members(first: Int = 50, after: String): OrganizationMemberConnection!
+  projects(includeArchived: Boolean = false, first: Int = 50, after: String): ProjectConnection!
+  labels: [Label!]!
+}
+
+"Organization-level (workspace-level) settings."
+type OrganizationSettings {
+  """
+  IANA time zone (e.g. `Asia/Kolkata`) that defines "today" for the organization,
+  and therefore when a task becomes overdue.
+  """
+  timezone: String!
+  "First day of the week in calendar views: 0 = Sunday … 6 = Saturday."
+  weekStartsOn: Int!
+  "Whether MEMBERs (not only ADMINs) may create projects."
+  membersCanCreateProjects: Boolean!
+  updatedAt: DateTime!
+}
+
+type OrganizationMember {
+  organization: Organization!
+  user: User!
+  role: OrganizationRole!
+  joinedAt: DateTime!
+}
+
+type OrganizationMemberConnection {
+  edges: [OrganizationMemberEdge!]!
+  pageInfo: PageInfo!
+}
+
+type OrganizationMemberEdge {
+  cursor: String!
+  node: OrganizationMember!
+}
+
+# -----------------------------------------------------------------------------
+# Projects, statuses, labels
+# -----------------------------------------------------------------------------
+
+type Project {
+  id: ID!
+  organization: Organization!
+  "Short identifier prefix, e.g. `WEB` → tasks WEB-1, WEB-2…"
+  key: String!
+  name: String!
+  description: String
+  archivedAt: DateTime
+  createdBy: User
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  "The board's columns, in display order."
+  statuses: [TaskStatus!]!
+  "All live tasks of the project, filtered and sorted. Default order: newest first."
+  tasks(
+    filter: TaskFilter
+    orderBy: TaskOrder = { field: CREATED_AT, direction: DESC }
+    first: Int = 50
+    after: String
+  ): TaskConnection!
+  "Counts for the summary panel and charts, honouring the same filter as `tasks`."
+  taskSummary(filter: TaskFilter): TaskSummary!
+}
+
+type ProjectConnection {
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ProjectEdge {
+  cursor: String!
+  node: Project!
+}
+
+"A customizable status (board column) of one project."
+type TaskStatus {
+  id: ID!
+  project: Project!
+  name: String!
+  category: StatusCategory!
+  "Hex colour, `#rrggbb`."
+  color: String!
+  "Column order, ascending."
+  position: Int!
+  "New tasks get this status unless another is specified."
+  isDefault: Boolean!
+  """
+  This column's tasks, in board order by default — each column pages independently,
+  so a large backlog never delays the other columns.
+  """
+  tasks(
+    filter: TaskFilter
+    orderBy: TaskOrder = { field: RANK, direction: ASC }
+    first: Int = 50
+    after: String
+  ): TaskConnection!
+}
+
+"An organization-wide label, usable on tasks of any project."
+type Label {
+  id: ID!
+  name: String!
+  color: String!
+}
+
+# -----------------------------------------------------------------------------
+# Tasks
+# -----------------------------------------------------------------------------
+
+type Task {
+  id: ID!
+  "Human identifier: project key + number, e.g. `WEB-42`."
+  identifier: String!
+  number: Int!
+  project: Project!
+  title: String!
+  "Markdown."
+  description: String
+  status: TaskStatus!
+  priority: TaskPriority!
+  assignee: User
+  labels: [Label!]!
+  dueDate: Date
+  """
+  True when the task is open (status category not COMPLETED/CANCELED) and its due
+  date is before today in the organization's time zone.
+  """
+  isOverdue: Boolean!
+  "When the task entered a COMPLETED status; null while open."
+  completedAt: DateTime
+  createdBy: User
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  comments(first: Int = 20, after: String): CommentConnection!
+  "What changed, by whom and when — newest first."
+  activity(first: Int = 20, after: String): TaskActivityConnection!
+}
+
+type TaskConnection {
+  edges: [TaskEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TaskEdge {
+  cursor: String!
+  node: Task!
+}
+
+"""
+Filters combine with AND; values inside one list combine with OR. Omitted or null
+fields don't filter.
+"""
+input TaskFilter {
+  statusIds: [ID!]
+  "e.g. `[BACKLOG, UNSTARTED, STARTED]` for open tasks."
+  statusCategories: [StatusCategory!]
+  "Tasks assigned to any of these users."
+  assigneeIds: [ID!]
+  """
+  Also (OR) match tasks with no assignee. On its own — without assigneeIds — it
+  matches unassigned tasks only.
+  """
+  includeUnassigned: Boolean
+  priorities: [TaskPriority!]
+  "Tasks carrying ANY of these labels."
+  labelIds: [ID!]
+  dueDate: DateRange
+  "Only tasks that are (true) or are not (false) overdue — see `Task.isOverdue`."
+  overdue: Boolean
+}
+
+"An inclusive date range; either end may be omitted."
+input DateRange {
+  from: Date
+  to: Date
+}
+
+input TaskOrder {
+  field: TaskSortField!
+  direction: SortDirection! = ASC
+}
+
+# -----------------------------------------------------------------------------
+# Summary / aggregation
+# -----------------------------------------------------------------------------
+
+"""
+Aggregates over the live tasks matching a filter. Computed in one SQL pass
+(`count(*) FILTER (WHERE …)`), never by loading the tasks.
+"""
+type TaskSummary {
+  total: Int!
+  overdue: Int!
+  "One entry per status of the project, in column order — including zero counts."
+  byStatus: [StatusCount!]!
+  "One entry per priority, NONE → URGENT — including zero counts."
+  byPriority: [PriorityCount!]!
+  "Busiest first. The entry with `assignee: null` counts unassigned tasks."
+  byAssignee: [AssigneeCount!]!
+}
+
+type StatusCount {
+  status: TaskStatus!
+  count: Int!
+}
+
+type PriorityCount {
+  priority: TaskPriority!
+  count: Int!
+}
+
+type AssigneeCount {
+  assignee: User
+  count: Int!
+}
+
+# -----------------------------------------------------------------------------
+# Comments & activity history
+# -----------------------------------------------------------------------------
+
+type Comment {
+  id: ID!
+  task: Task!
+  "Null if the author's account was deleted."
+  author: User
+  "Markdown. Null once the comment is deleted (the thread shows a placeholder)."
+  body: String
+  createdAt: DateTime!
+  editedAt: DateTime
+  isDeleted: Boolean!
+}
+
+type CommentConnection {
+  edges: [CommentEdge!]!
+  pageInfo: PageInfo!
+}
+
+type CommentEdge {
+  cursor: String!
+  node: Comment!
+}
+
+"""
+One entry in a task's history. Concrete types carry the before/after values, so
+clients render "Alice moved WEB-42 from Todo to In Progress" without parsing JSON.
+"""
+interface TaskActivity {
+  id: ID!
+  task: Task!
+  "Who made the change; null for system changes (imports, migrations)."
+  actor: User
+  createdAt: DateTime!
+}
+
+type TaskCreatedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+}
+
+type TaskDeletedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+}
+
+type TaskRestoredActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+}
+
+type TaskTitleChangedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  from: String!
+  to: String!
+}
+
+"The description changed (its content is not copied into the history)."
+type TaskDescriptionChangedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+}
+
+type TaskStatusChangedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  from: TaskStatusSnapshot!
+  to: TaskStatusSnapshot!
+}
+
+type TaskPriorityChangedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  from: TaskPriority!
+  to: TaskPriority!
+}
+
+type TaskAssigneeChangedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  "Null = was unassigned."
+  from: User
+  "Null = now unassigned."
+  to: User
+}
+
+type TaskDueDateChangedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  from: Date
+  to: Date
+}
+
+type TaskLabelAddedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  label: LabelSnapshot!
+}
+
+type TaskLabelRemovedActivity implements TaskActivity {
+  id: ID!
+  task: Task!
+  actor: User
+  createdAt: DateTime!
+  label: LabelSnapshot!
+}
+
+"A status as it was when the change happened (history keeps old names)."
+type TaskStatusSnapshot {
+  id: ID!
+  name: String!
+  category: StatusCategory!
+  "The live status, or null if it has since been deleted."
+  status: TaskStatus
+}
+
+"A label as it was when the change happened."
+type LabelSnapshot {
+  id: ID!
+  "Null if the label was being deleted when the change was recorded."
+  name: String
+  color: String
+  "The live label, or null if it has since been deleted."
+  label: Label
+}
+
+type TaskActivityConnection {
+  edges: [TaskActivityEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TaskActivityEdge {
+  cursor: String!
+  node: TaskActivity!
+}
+
+# -----------------------------------------------------------------------------
+# Queries
+# -----------------------------------------------------------------------------
+
+type Query {
+  "The signed-in user. UNAUTHENTICATED without a valid token."
+  viewer: Viewer!
+  "An organization the viewer belongs to; null otherwise."
+  organization(slug: String!): Organization
+  project(id: ID!): Project
+  task(id: ID!): Task
+  "Look a task up by its human identifier, e.g. (`acme`, `WEB-42`)."
+  taskByIdentifier(organizationSlug: String!, identifier: String!): Task
+  """
+  Tasks assigned to the viewer across every project — and, unless
+  `organizationId` is given, every organization — they belong to.
+  "My overdue tasks": `myTasks(filter: { overdue: true }, orderBy: { field: DUE_DATE })`.
+  """
+  myTasks(
+    organizationId: ID
+    filter: TaskFilter
+    orderBy: TaskOrder = { field: DUE_DATE, direction: ASC }
+    first: Int = 50
+    after: String
+  ): TaskConnection!
+}
+
+# -----------------------------------------------------------------------------
+# Mutations
+# -----------------------------------------------------------------------------
+
+type Mutation {
+  # --- Organizations ---------------------------------------------------------
+  "Creates the organization and makes the viewer its OWNER."
+  createOrganization(input: CreateOrganizationInput!): OrganizationPayload!
+  updateOrganization(input: UpdateOrganizationInput!): OrganizationPayload!
+    @requiresRole(role: ADMIN)
+  updateOrganizationSettings(input: UpdateOrganizationSettingsInput!): OrganizationSettingsPayload!
+    @requiresRole(role: ADMIN)
+  "ADMINs manage non-owner memberships; only OWNERs may grant or change OWNER."
+  addOrganizationMember(input: AddOrganizationMemberInput!): OrganizationMemberPayload!
+    @requiresRole(role: ADMIN)
+  updateOrganizationMemberRole(
+    input: UpdateOrganizationMemberRoleInput!
+  ): OrganizationMemberPayload! @requiresRole(role: ADMIN)
+  """
+  Removes a member (or lets the viewer leave). Their tasks become unassigned.
+  CONFLICT if it would leave the organization without an OWNER.
+  """
+  removeOrganizationMember(input: RemoveOrganizationMemberInput!): RemoveOrganizationMemberPayload!
+
+  # --- Projects & board configuration ------------------------------------------
+  "ADMIN, or MEMBER when the organization's settings allow it."
+  createProject(input: CreateProjectInput!): ProjectPayload! @requiresRole(role: MEMBER)
+  updateProject(input: UpdateProjectInput!): ProjectPayload! @requiresRole(role: ADMIN)
+  "Archived projects are read-only and hidden by default; nothing is deleted."
+  setProjectArchived(input: SetProjectArchivedInput!): ProjectPayload! @requiresRole(role: ADMIN)
+  createTaskStatus(input: CreateTaskStatusInput!): TaskStatusPayload! @requiresRole(role: ADMIN)
+  "Changing a status's category re-evaluates all of its tasks (open/completed)."
+  updateTaskStatus(input: UpdateTaskStatusInput!): TaskStatusPayload! @requiresRole(role: ADMIN)
+  reorderTaskStatuses(input: ReorderTaskStatusesInput!): ProjectPayload! @requiresRole(role: ADMIN)
+  "Moves the status's tasks to `moveTasksToStatusId` first (required if it has tasks)."
+  deleteTaskStatus(input: DeleteTaskStatusInput!): DeleteTaskStatusPayload!
+    @requiresRole(role: ADMIN)
+
+  # --- Labels ----------------------------------------------------------------
+  createLabel(input: CreateLabelInput!): LabelPayload! @requiresRole(role: MEMBER)
+  updateLabel(input: UpdateLabelInput!): LabelPayload! @requiresRole(role: MEMBER)
+  "Removes the label from every task in the organization."
+  deleteLabel(input: DeleteLabelInput!): DeleteLabelPayload! @requiresRole(role: ADMIN)
+
+  # --- Tasks -----------------------------------------------------------------
+  createTask(input: CreateTaskInput!): TaskPayload! @requiresRole(role: MEMBER)
+  "Partial update: omitted fields are unchanged; explicit null clears a nullable field."
+  updateTask(input: UpdateTaskInput!): TaskPayload! @requiresRole(role: MEMBER)
+  """
+  Board drag-and-drop: put the task into `statusId`, between `afterTaskId` and
+  `beforeTaskId` (both optional: neither = end of column). The server computes
+  the new rank, so clients never deal with ordering keys.
+  """
+  moveTask(input: MoveTaskInput!): TaskPayload! @requiresRole(role: MEMBER)
+  "Soft delete — the task, its comments and its history can be restored."
+  deleteTask(input: DeleteTaskInput!): TaskPayload! @requiresRole(role: MEMBER)
+  restoreTask(input: RestoreTaskInput!): TaskPayload! @requiresRole(role: MEMBER)
+  "Replaces the task's label set; the history records each label added or removed."
+  setTaskLabels(input: SetTaskLabelsInput!): TaskPayload! @requiresRole(role: MEMBER)
+
+  # --- Comments --------------------------------------------------------------
+  addComment(input: AddCommentInput!): CommentPayload! @requiresRole(role: MEMBER)
+  "Authors only."
+  editComment(input: EditCommentInput!): CommentPayload! @requiresRole(role: MEMBER)
+  "Authors, or ADMINs moderating."
+  deleteComment(input: DeleteCommentInput!): CommentPayload! @requiresRole(role: MEMBER)
+}
+
+# --- Mutation inputs -----------------------------------------------------------
+
+input CreateOrganizationInput {
+  name: String!
+  slug: String!
+}
+
+input UpdateOrganizationInput {
+  id: ID!
+  name: String
+  slug: String
+}
+
+input UpdateOrganizationSettingsInput {
+  organizationId: ID!
+  timezone: String
+  weekStartsOn: Int
+  membersCanCreateProjects: Boolean
+}
+
+input AddOrganizationMemberInput {
+  organizationId: ID!
+  "The user must already have an account."
+  email: String!
+  role: OrganizationRole! = MEMBER
+}
+
+input UpdateOrganizationMemberRoleInput {
+  organizationId: ID!
+  userId: ID!
+  role: OrganizationRole!
+}
+
+input RemoveOrganizationMemberInput {
+  organizationId: ID!
+  userId: ID!
+}
+
+input CreateProjectInput {
+  organizationId: ID!
+  "2–10 characters, A–Z/0–9, starting with a letter. Fixed once created."
+  key: String!
+  name: String!
+  description: String
+}
+
+input UpdateProjectInput {
+  id: ID!
+  name: String
+  description: String
+}
+
+input SetProjectArchivedInput {
+  id: ID!
+  archived: Boolean!
+}
+
+input CreateTaskStatusInput {
+  projectId: ID!
+  name: String!
+  category: StatusCategory!
+  color: String
+  "Appended as the last column when omitted."
+  position: Int
+  isDefault: Boolean = false
+}
+
+input UpdateTaskStatusInput {
+  id: ID!
+  name: String
+  category: StatusCategory
+  color: String
+  isDefault: Boolean
+}
+
+input ReorderTaskStatusesInput {
+  projectId: ID!
+  "Every status of the project, in the new display order."
+  statusIds: [ID!]!
+}
+
+input DeleteTaskStatusInput {
+  id: ID!
+  moveTasksToStatusId: ID
+}
+
+input CreateLabelInput {
+  organizationId: ID!
+  name: String!
+  color: String
+}
+
+input UpdateLabelInput {
+  id: ID!
+  name: String
+  color: String
+}
+
+input DeleteLabelInput {
+  id: ID!
+}
+
+input CreateTaskInput {
+  "Optional client-generated UUIDv7, so optimistic UI can use the final id."
+  id: ID
+  projectId: ID!
+  title: String!
+  description: String
+  "Defaults to the project's default status."
+  statusId: ID
+  priority: TaskPriority = NONE
+  assigneeId: ID
+  dueDate: Date
+  labelIds: [ID!]
+}
+
+input UpdateTaskInput {
+  id: ID!
+  title: String
+  description: String
+  priority: TaskPriority
+  assigneeId: ID
+  dueDate: Date
+}
+
+input MoveTaskInput {
+  id: ID!
+  statusId: ID!
+  afterTaskId: ID
+  beforeTaskId: ID
+}
+
+input DeleteTaskInput {
+  id: ID!
+}
+
+input RestoreTaskInput {
+  id: ID!
+}
+
+input SetTaskLabelsInput {
+  taskId: ID!
+  labelIds: [ID!]!
+}
+
+input AddCommentInput {
+  taskId: ID!
+  body: String!
+}
+
+input EditCommentInput {
+  id: ID!
+  body: String!
+}
+
+input DeleteCommentInput {
+  id: ID!
+}
+
+# --- Mutation payloads -----------------------------------------------------------
+
+type OrganizationPayload {
+  organization: Organization!
+}
+
+type OrganizationSettingsPayload {
+  settings: OrganizationSettings!
+}
+
+type OrganizationMemberPayload {
+  member: OrganizationMember!
+}
+
+type RemoveOrganizationMemberPayload {
+  organizationId: ID!
+  userId: ID!
+}
+
+type ProjectPayload {
+  project: Project!
+}
+
+type TaskStatusPayload {
+  status: TaskStatus!
+}
+
+type DeleteTaskStatusPayload {
+  deletedStatusId: ID!
+  project: Project!
+}
+
+type LabelPayload {
+  label: Label!
+}
+
+type DeleteLabelPayload {
+  deletedLabelId: ID!
+}
+
+type TaskPayload {
+  task: Task!
+}
+
+type CommentPayload {
+  comment: Comment!
+}

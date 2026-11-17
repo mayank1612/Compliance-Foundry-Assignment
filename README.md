@@ -36,6 +36,7 @@ docs/                Design docs, critique, RFC, tech stack rationale
 ## Documents
 
 - [Tech stack choice](docs/tech-stack-choice.md): what every tool is, why we chose it, and what we turned down.
+- [Part 1: System design](docs/part1/README.md): data model (GraphQL + SQL), technical documentation, critique.
 
 ## Assumptions
 

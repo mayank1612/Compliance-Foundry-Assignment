@@ -3,4 +3,162 @@
  * Please do not edit it manually.
  */
 
-export interface DB {}
+import type { ColumnType } from "kysely";
+
+export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
+  ? ColumnType<S, I | undefined, U>
+  : ColumnType<T, T | undefined, T>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type OrganizationRole = "admin" | "member" | "owner" | "viewer";
+
+export type StatusCategory = "backlog" | "canceled" | "completed" | "started" | "unstarted";
+
+export type TaskActivityKind = "created" | "deleted" | "label_added" | "label_removed" | "restored" | "updated";
+
+export type TaskPriority = "high" | "low" | "medium" | "none" | "urgent";
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Labels {
+  color: Generated<string>;
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  name: string;
+  organizationId: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface OrganizationMembers {
+  createdAt: Generated<Timestamp>;
+  organizationId: string;
+  role: Generated<OrganizationRole>;
+  updatedAt: Generated<Timestamp>;
+  userId: string;
+}
+
+export interface Organizations {
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  name: string;
+  slug: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface OrganizationSettings {
+  membersCanCreateProjects: Generated<boolean>;
+  organizationId: string;
+  timezone: Generated<string>;
+  updatedAt: Generated<Timestamp>;
+  weekStartsOn: Generated<number>;
+}
+
+export interface Projects {
+  archivedAt: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  createdBy: Generated<string | null>;
+  description: string | null;
+  id: Generated<string>;
+  key: string;
+  name: string;
+  organizationId: string;
+  taskCounter: Generated<number>;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface TaskActivities {
+  actorId: string | null;
+  createdAt: Generated<Timestamp>;
+  field: string | null;
+  id: Generated<string>;
+  kind: TaskActivityKind;
+  newValue: Json | null;
+  oldValue: Json | null;
+  organizationId: string;
+  taskId: string;
+}
+
+export interface TaskComments {
+  authorId: Generated<string | null>;
+  body: string;
+  createdAt: Generated<Timestamp>;
+  deletedAt: Timestamp | null;
+  editedAt: Timestamp | null;
+  id: Generated<string>;
+  organizationId: string;
+  taskId: string;
+}
+
+export interface TaskLabels {
+  createdAt: Generated<Timestamp>;
+  labelId: string;
+  organizationId: string;
+  taskId: string;
+}
+
+export interface Tasks {
+  assigneeId: string | null;
+  completedAt: Timestamp | null;
+  createdAt: Generated<Timestamp>;
+  createdBy: Generated<string | null>;
+  deletedAt: Timestamp | null;
+  description: string | null;
+  dueDate: string | null;
+  id: Generated<string>;
+  number: Generated<number>;
+  organizationId: string;
+  priority: Generated<TaskPriority>;
+  projectId: string;
+  rank: string;
+  statusCategory: Generated<StatusCategory>;
+  statusId: Generated<string>;
+  title: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface TaskStatuses {
+  category: StatusCategory;
+  color: Generated<string>;
+  createdAt: Generated<Timestamp>;
+  id: Generated<string>;
+  isDefault: Generated<boolean>;
+  name: string;
+  organizationId: string;
+  position: number;
+  projectId: string;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface Users {
+  avatarUrl: string | null;
+  createdAt: Generated<Timestamp>;
+  displayName: string;
+  email: string;
+  id: Generated<string>;
+  updatedAt: Generated<Timestamp>;
+}
+
+export interface DB {
+  labels: Labels;
+  organizationMembers: OrganizationMembers;
+  organizations: Organizations;
+  organizationSettings: OrganizationSettings;
+  projects: Projects;
+  taskActivities: TaskActivities;
+  taskComments: TaskComments;
+  taskLabels: TaskLabels;
+  tasks: Tasks;
+  taskStatuses: TaskStatuses;
+  users: Users;
+}

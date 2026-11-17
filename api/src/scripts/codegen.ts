@@ -41,6 +41,17 @@ await runScript(LOG, async () => {
       camelCase: true,
       // int8 → number (matches parseSafeInt8 in db/pool.ts)
       typeMapping: { int8: 'number' },
+      // Columns that are NOT NULL without a column DEFAULT, but are filled in by a
+      // BEFORE INSERT trigger (0003_projects_and_tasks.sql). Introspection can't see
+      // triggers, so without this the types would *require* values the API must not
+      // (and, per its grants, cannot) supply.
+      overrides: {
+        columns: {
+          'tasks.number': 'Generated<number>', // per-project sequence
+          'tasks.status_id': 'Generated<string>', // defaults to the project's default status
+          'tasks.status_category': 'Generated<StatusCategory>', // copied from the status
+        },
+      },
 
       // The migrator's own bookkeeping tables are not part of the domain model.
       excludePattern: 'kysely_migration*',
