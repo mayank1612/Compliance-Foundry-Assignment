@@ -8,7 +8,7 @@ A simplified Linear/Jira-style platform built for the Compliance Foundry Senior 
 
 The design documents, AI critique and RFC sit alongside the code.
 
-> **Status:** Parts 1 and 2 are done (data model, docs, critique, GraphQL API, task board). Part 3 (RFC) is in progress.
+> **Status:** all three parts are done. The AI transcript and prompting-strategy notes are the last deliverable.
 
 ![The task board: a 2,500-task project with summary tiles and the priority chart](docs/part2/images/board-light.png)
 
@@ -66,6 +66,7 @@ docs/                Design docs, critique, RFC, tech stack rationale
 - [Tech stack choice](docs/tech-stack-choice.md): what every tool is, why we chose it, and what we turned down.
 - [Part 1: System design](docs/part1/README.md): data model (GraphQL + SQL), technical documentation, critique.
 - [Part 2: Implementation](docs/part2/README.md): the GraphQL API and the task board, with design explanations.
+- [Part 3: RFC — a fast task board for large projects](docs/part3/rfc-fast-task-board.md): problem metrics, options, plan, targets, rollout.
 
 ## Assumptions
 
