@@ -4,13 +4,15 @@ _The commentary below was drafted by Claude at the author's request, from the ac
 
 ## The logs
 
-| Log                                                        | What it covers                                                                                   | File                                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Main Claude Code session                                   | Every phase: reading the brief, tech stack, schema, docs, critique verification, API, board, RFC | `main-session.md` (exported with `/export`)                                       |
-| Side session                                               | Spikes comparing Kysely, Drizzle and Sequelize against PGlite before the query layer was chosen  | `side-session-query-layer-spikes.md` (exported with `/export`)                    |
-| Independent critique agent (a subagent, no shared context) | The Task 1.3 critique of schema v1                                                               | Prompt and output, verbatim: [`../part1/ai-critique.md`](../part1/ai-critique.md) |
+| Log                                                        | What it covers                                                                                                                     | File                                                                                                           |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Side session                                               | Choosing the database runtime and query layer: what PGlite is, then Kysely vs Drizzle vs Sequelize, with spikes run against PGlite | [`side-session-query-layer-spikes.md`](side-session-query-layer-spikes.md) (complete, exported with `/export`) |
+| Main Claude Code session                                   | Every phase: reading the brief, tech stack, schema, docs, critique verification, API, board, RFC, and this page                    | [`main-session.md`](main-session.md) (partial, see below)                                                      |
+| Independent critique agent (a subagent, no shared context) | The Task 1.3 critique of schema v1                                                                                                 | Prompt and output, verbatim: [`../part1/ai-critique.md`](../part1/ai-critique.md)                              |
 
-The transcripts are exported unedited. The only exception is personal data, if any, that the author removes before publishing: local file paths, the git email address and development tokens. Development tokens are signed with the public development secret and only work against a local database.
+**The main session export is partial.** The session ran long enough that Claude Code compacted it once, replacing the earlier conversation with a summary. `/export` renders only what is still loaded, so `main-session.md` covers just the final step: writing this page and pushing. The full conversation, from the first prompt through Part 3, exists only in the session's raw log file, which is not included here.
+
+Both exports are unedited, including the local file paths they contain. `/export` shows tool calls collapsed ("Read 2 files, ran 3 shell commands"), not their full output.
 
 ## Prompting strategy
 
