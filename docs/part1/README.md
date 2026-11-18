@@ -26,4 +26,7 @@
 
 ## Task 1.3: AI critique and analysis
 
-_Pending._
+| Deliverable                    | Where                                                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| AI critique (raw, unedited)    | [`ai-critique.md`](ai-critique.md): an independent agent that read only the six schema files. Includes its exact prompt |
+| Our assessment (500–750 words) | `critique-analysis.md`: _pending_                                                                                       |

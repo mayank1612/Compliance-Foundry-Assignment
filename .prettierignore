@@ -8,3 +8,7 @@ package-lock.json
 api/src/db/types.ts
 .claude/
 /Senior Full-Stack Developer*.md
+
+# Verbatim AI output (Task 1.3 critique) — published exactly as generated, so
+# not even formatting may change.
+docs/part1/ai-critique.md
