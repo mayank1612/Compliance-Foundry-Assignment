@@ -2,7 +2,7 @@
  * reset.ts — `npm run db:reset`: wipe the embedded dev database and rebuild it.
  *
  * What: deletes the PGlite data directory, then re-applies every migration
- *       (and, once Part 2 adds it, the seed data).
+ *       and loads the demo seed data.
  * When: after editing a not-yet-committed migration, or to get back to a clean state.
  * Safety: this is destructive, so it
  *   1. refuses to run when DATABASE_URL points at a real server — we never drop
@@ -16,6 +16,7 @@ import { loadEnv } from '../config/env.js';
 import { acquireDataDirLock } from '../db/data-dir-lock.js';
 import { openDatabaseFromEnv } from '../db/database.js';
 import { logMigrationResults, migrateToLatest } from '../db/migrator.js';
+import { seedDemoData } from '../db/seed.js';
 import { API_ROOT } from '../paths.js';
 import { runScript } from './run-script.js';
 
@@ -50,6 +51,8 @@ await runScript(LOG, async () => {
   const database = await openDatabaseFromEnv(env, LOG);
   try {
     logMigrationResults(await migrateToLatest(database.db), LOG);
+    const seeded = await seedDemoData(database.db);
+    console.log(`${LOG} seeded demo data: ${seeded.tasks} tasks`);
   } finally {
     await database.close();
   }

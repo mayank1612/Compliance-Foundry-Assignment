@@ -9,10 +9,10 @@
     // TypeScript 6 no longer auto-includes every @types package — list the
     // ambient types we rely on explicitly (Node built-ins: fs, path, http…).
     "types": ["node"],
-    // Type-check only. A production build config (emitting to dist/) is added
-    // with the GraphQL server in Part 2.
+    // Type-check only: the API runs its TypeScript directly through tsx
+    // (`npm run dev` / `npm start`), so nothing is emitted.
     "noEmit": true
   },
-  // Source, tests and the Vitest config are all type-checked and linted.
-  "include": ["src", "test", "vitest.config.ts"]
+  // Source, tests and the Vitest/codegen configs are all type-checked and linted.
+  "include": ["src", "test", "vitest.config.ts", "codegen.ts"]
 }

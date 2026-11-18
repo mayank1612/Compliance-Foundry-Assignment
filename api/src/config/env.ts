@@ -17,37 +17,54 @@ import { API_ROOT } from '../paths.js';
 /** Treat `FOO=` (present but empty) the same as "not set" — a common .env pitfall. */
 const emptyToUndefined = (value: unknown) => (value === '' ? undefined : value);
 
-const EnvSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+const EnvSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-  // When set, the API connects to this real Postgres server (Docker, RDS, Neon…).
-  // When absent, it boots the embedded PGlite database instead — the zero-setup
-  // default for reviewers. Same `pg` driver either way.
-  DATABASE_URL: z.preprocess(
-    emptyToUndefined,
-    z
+    // When set, the API connects to this real Postgres server (Docker, RDS, Neon…).
+    // When absent, it boots the embedded PGlite database instead — the zero-setup
+    // default for reviewers. Same `pg` driver either way.
+    DATABASE_URL: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .regex(/^postgres(ql)?:\/\//, 'must be a postgres:// or postgresql:// connection URL')
+        .optional(),
+    ),
+
+    // Where embedded PGlite persists its files. Relative paths are anchored at
+    // `api/` (not the shell's cwd) so `npm run dev` from any folder hits the same DB.
+    PGLITE_DATA_DIR: z
       .string()
-      .regex(/^postgres(ql)?:\/\//, 'must be a postgres:// or postgresql:// connection URL')
-      .optional(),
-  ),
+      .min(1)
+      .default('.pglite')
+      .transform((dir) => (isAbsolute(dir) ? dir : resolve(API_ROOT, dir))),
 
-  // Where embedded PGlite persists its files. Relative paths are anchored at
-  // `api/` (not the shell's cwd) so `npm run dev` from any folder hits the same DB.
-  PGLITE_DATA_DIR: z
-    .string()
-    .min(1)
-    .default('.pglite')
-    .transform((dir) => (isAbsolute(dir) ? dir : resolve(API_ROOT, dir))),
+    // Fixed port `npm run db:serve` exposes the embedded database on, for desktop
+    // tools (DBeaver, psql). Deliberately not 5432, so it never collides with a
+    // locally installed Postgres.
+    PGLITE_PORT: z.coerce.number().int().min(1024).max(65535).default(54320),
 
-  // Fixed port `npm run db:serve` exposes the embedded database on, for desktop
-  // tools (DBeaver, psql). Deliberately not 5432, so it never collides with a
-  // locally installed Postgres.
-  PGLITE_PORT: z.coerce.number().int().min(1024).max(65535).default(54320),
+    // Connection-pool size for a real Postgres server. Ignored for PGlite, which is
+    // pinned to 1 (see db/database.ts for why).
+    DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
 
-  // Connection-pool size for a real Postgres server. Ignored for PGlite, which is
-  // pinned to 1 (see db/database.ts for why).
-  DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
-});
+    // HTTP port of the GraphQL API (`npm run dev` → http://localhost:4000/graphql).
+    PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+
+    // HMAC secret for signing/verifying access tokens (HS256). The development
+    // default exists only so a reviewer can run the app with zero setup; production
+    // must supply its own (enforced below).
+    JWT_SECRET: z.string().min(32).default('dev-only-insecure-secret-do-not-use-in-production'),
+
+    // Browser origin allowed to call the API (the Vite dev server by default).
+    CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  })
+  // Fail fast if production would run with the publicly known development secret.
+  .refine((env) => env.NODE_ENV !== 'production' || !env.JWT_SECRET.startsWith('dev-only'), {
+    message: 'JWT_SECRET must be set to a private value in production',
+    path: ['JWT_SECRET'],
+  });
 
 export type Env = Readonly<z.infer<typeof EnvSchema>>;
 

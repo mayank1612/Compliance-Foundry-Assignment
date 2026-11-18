@@ -21,6 +21,11 @@ export interface OpenDatabaseOptions {
   pgliteDataDir?: string | undefined;
   /** Pool size for a real server. Ignored for PGlite (always 1). */
   poolMax?: number | undefined;
+  /**
+   * Called with the SQL text of every executed query. Tests use it to COUNT queries
+   * per GraphQL request — the regression guard against N+1 (finding N1).
+   */
+  onQuery?: ((sqlText: string) => void) | undefined;
 }
 
 export interface Database {
@@ -53,6 +58,13 @@ export async function openDatabase(options: OpenDatabaseOptions = {}): Promise<D
     // Caveat: identifiers inside raw sql`` template text are NOT converted —
     // write them in snake_case there.
     plugins: [new CamelCasePlugin()],
+    ...(options.onQuery
+      ? {
+          log: (event) => {
+            if (event.level === 'query') options.onQuery?.(event.query.sql);
+          },
+        }
+      : {}),
   });
 
   return {

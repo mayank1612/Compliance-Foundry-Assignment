@@ -11,14 +11,15 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "setup": "npm run db:migrate -w api",
+    "setup": "npm run db:migrate -w api && npm run db:seed -w api",
+    "dev": "npm run dev -w api",
     "db:serve": "npm run db:serve -w api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run db:codegen -w api -- --verify && npm test"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run db:codegen -w api -- --verify && npm run gql:codegen -w api -- --check && npm test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

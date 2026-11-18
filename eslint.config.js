@@ -19,6 +19,7 @@ export default defineConfig(
       '**/coverage/**',
       '**/.pglite/**',
       'api/src/db/types.ts',
+      'api/src/graphql/generated/**',
     ],
   },
 
@@ -43,6 +44,14 @@ export default defineConfig(
   // Plain JS config files (like this one) are not in any tsconfig, so type-aware
   // rules cannot run on them.
   { files: ['**/*.js', '**/*.mjs'], extends: [tseslint.configs.disableTypeChecked] },
+
+  // Tests may assert "this is present" with `!`: if the assumption is wrong the
+  // test fails loudly at that line, which is exactly what a test should do.
+  // Application code must narrow explicitly (see the `required()` helpers).
+  {
+    files: ['**/test/**/*.ts'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+  },
 
   // Last: turn off every stylistic rule Prettier owns, so the two never fight.
   prettier,

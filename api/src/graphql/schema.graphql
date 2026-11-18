@@ -1,0 +1,298 @@
+# =============================================================================
+# Task Board API — the GraphQL contract implemented in Part 2 (Task 2.1)
+# =============================================================================
+# What: the Task Board slice of the platform design in docs/part1/schema.graphql.
+#       Every type, field and enum value here exists there with the same type, so
+#       clients written against this API keep working as the rest of the design is
+#       implemented (enforced by api/test/graphql-contract.test.ts).
+# Not implemented yet (design only): comments, activity history, and the
+#       configuration/membership mutations.
+#
+# Conventions (from the design):
+#   * Lists that can grow are cursor connections: `first` (max 100) + `after`.
+#   * Errors carry `extensions.code`: UNAUTHENTICATED, FORBIDDEN, NOT_FOUND,
+#     BAD_USER_INPUT, CONFLICT. Unexpected errors are masked ("Unexpected error.").
+#   * Objects outside the caller's organizations resolve to null / NOT_FOUND —
+#     the API never confirms that another tenant's ids exist.
+# =============================================================================
+
+"An instant in time: ISO-8601 with offset, e.g. `2026-11-16T09:30:00Z`."
+scalar DateTime
+
+"A calendar date with no time or zone: `YYYY-MM-DD`."
+scalar Date
+
+enum OrganizationRole {
+  VIEWER
+  MEMBER
+  ADMIN
+  OWNER
+}
+
+enum TaskPriority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum StatusCategory {
+  BACKLOG
+  UNSTARTED
+  STARTED
+  COMPLETED
+  CANCELED
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}
+
+enum TaskSortField {
+  "Manual board order. Only meaningful within one status column."
+  RANK
+  PRIORITY
+  DUE_DATE
+  "Newest first by default. Served from the per-project sequence number."
+  CREATED_AT
+  "The per-project sequence number (WEB-1, WEB-2, …)."
+  NUMBER
+}
+
+"Cursor pagination state. Cursors are opaque; pass `endCursor` as `after`."
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+type User {
+  id: ID!
+  displayName: String!
+  email: String!
+  avatarUrl: String
+}
+
+"The signed-in user and their organizations."
+type Viewer {
+  user: User!
+  memberships: [OrganizationMember!]!
+}
+
+type Organization {
+  id: ID!
+  name: String!
+  slug: String!
+  createdAt: DateTime!
+  "The signed-in user's role here — drives which controls the UI shows."
+  viewerRole: OrganizationRole!
+  settings: OrganizationSettings!
+  members(first: Int = 50, after: String): OrganizationMemberConnection!
+  projects(includeArchived: Boolean = false, first: Int = 50, after: String): ProjectConnection!
+  labels: [Label!]!
+}
+
+type OrganizationSettings {
+  timezone: String!
+  weekStartsOn: Int!
+  membersCanCreateProjects: Boolean!
+  updatedAt: DateTime!
+}
+
+type OrganizationMember {
+  organization: Organization!
+  user: User!
+  role: OrganizationRole!
+  joinedAt: DateTime!
+}
+
+type OrganizationMemberConnection {
+  edges: [OrganizationMemberEdge!]!
+  pageInfo: PageInfo!
+}
+
+type OrganizationMemberEdge {
+  cursor: String!
+  node: OrganizationMember!
+}
+
+type Project {
+  id: ID!
+  organization: Organization!
+  key: String!
+  name: String!
+  description: String
+  archivedAt: DateTime
+  createdBy: User
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  "The board's columns, in display order."
+  statuses: [TaskStatus!]!
+  "All live tasks of the project, filtered and sorted. Default order: newest first."
+  tasks(
+    filter: TaskFilter
+    orderBy: TaskOrder = { field: CREATED_AT, direction: DESC }
+    first: Int = 50
+    after: String
+  ): TaskConnection!
+  "Counts for the summary panel and charts, honouring the same filter as `tasks`."
+  taskSummary(filter: TaskFilter): TaskSummary!
+}
+
+type ProjectConnection {
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ProjectEdge {
+  cursor: String!
+  node: Project!
+}
+
+"A customizable status (board column) of one project."
+type TaskStatus {
+  id: ID!
+  project: Project!
+  name: String!
+  category: StatusCategory!
+  color: String!
+  position: Int!
+  isDefault: Boolean!
+  "This column's tasks, in board order by default; each column pages independently."
+  tasks(
+    filter: TaskFilter
+    orderBy: TaskOrder = { field: RANK, direction: ASC }
+    first: Int = 50
+    after: String
+  ): TaskConnection!
+}
+
+type Label {
+  id: ID!
+  name: String!
+  color: String!
+}
+
+type Task {
+  id: ID!
+  "Human identifier: project key + number, e.g. `WEB-42`."
+  identifier: String!
+  number: Int!
+  project: Project!
+  title: String!
+  description: String
+  status: TaskStatus!
+  priority: TaskPriority!
+  assignee: User
+  labels: [Label!]!
+  dueDate: Date
+  "Open (not COMPLETED/CANCELED) and due before today in the organization's time zone."
+  isOverdue: Boolean!
+  completedAt: DateTime
+  createdBy: User
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type TaskConnection {
+  edges: [TaskEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TaskEdge {
+  cursor: String!
+  node: Task!
+}
+
+"Filters combine with AND; values inside one list combine with OR."
+input TaskFilter {
+  statusIds: [ID!]
+  statusCategories: [StatusCategory!]
+  assigneeIds: [ID!]
+  "Also (OR) match tasks with no assignee; on its own, matches unassigned tasks only."
+  includeUnassigned: Boolean
+  priorities: [TaskPriority!]
+  labelIds: [ID!]
+  dueDate: DateRange
+  overdue: Boolean
+}
+
+"An inclusive date range; either end may be omitted."
+input DateRange {
+  from: Date
+  to: Date
+}
+
+input TaskOrder {
+  field: TaskSortField!
+  direction: SortDirection! = ASC
+}
+
+"Aggregates over the live tasks matching a filter, computed in one SQL pass."
+type TaskSummary {
+  total: Int!
+  overdue: Int!
+  "One entry per status of the project, in column order — including zero counts."
+  byStatus: [StatusCount!]!
+  "One entry per priority, NONE → URGENT — including zero counts."
+  byPriority: [PriorityCount!]!
+  "Busiest first (top 50). The entry with `assignee: null` counts unassigned tasks."
+  byAssignee: [AssigneeCount!]!
+}
+
+type StatusCount {
+  status: TaskStatus!
+  count: Int!
+}
+
+type PriorityCount {
+  priority: TaskPriority!
+  count: Int!
+}
+
+type AssigneeCount {
+  assignee: User
+  count: Int!
+}
+
+type Query {
+  "The signed-in user. UNAUTHENTICATED without a valid token."
+  viewer: Viewer!
+  "An organization the viewer belongs to; null otherwise."
+  organization(slug: String!): Organization
+  project(id: ID!): Project
+  task(id: ID!): Task
+  """
+  Tasks assigned to the viewer across every project (and, unless
+  `organizationId` is given, every organization) they belong to.
+  "My overdue tasks": `myTasks(filter: { overdue: true })`.
+  """
+  myTasks(
+    organizationId: ID
+    filter: TaskFilter
+    orderBy: TaskOrder = { field: DUE_DATE, direction: ASC }
+    first: Int = 50
+    after: String
+  ): TaskConnection!
+}
+
+type Mutation {
+  """
+  Board drag-and-drop: put the task into `statusId`, between `afterTaskId` and
+  `beforeTaskId` (both optional: neither = end of column). The server computes
+  the new rank, so clients never deal with ordering keys.
+  """
+  moveTask(input: MoveTaskInput!): TaskPayload!
+}
+
+input MoveTaskInput {
+  id: ID!
+  statusId: ID!
+  afterTaskId: ID
+  beforeTaskId: ID
+}
+
+type TaskPayload {
+  task: Task!
+}

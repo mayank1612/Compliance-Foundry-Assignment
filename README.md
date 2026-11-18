@@ -8,7 +8,7 @@ A simplified Linear/Jira-style platform built for the Compliance Foundry Senior 
 
 The design documents, AI critique and RFC sit alongside the code.
 
-> **Status:** project setup is complete. Parts 1–3 are in progress, and this README will map every deliverable once they're done.
+> **Status:** Part 1 (data model, docs, critique) and Task 2.1 (GraphQL API) are done; Task 2.2 (board UI) and Part 3 (RFC) are in progress.
 
 ## Quick start
 
@@ -16,7 +16,8 @@ Requires **Node.js ≥ 22.12** (developed on 24.12). No database install and no 
 
 ```bash
 npm install
-npm run setup   # create the embedded database and apply migrations
+npm run setup   # create the embedded database, apply migrations, load demo data
+npm run dev     # GraphQL API on http://localhost:4000/graphql (GraphiQL in the browser)
 npm run check   # typecheck, lint, format, generated-types check, tests
 ```
 
@@ -46,8 +47,11 @@ In DBeaver, choose **New Database Connection → PostgreSQL** and enter the valu
 ```
 api/                 Node.js GraphQL API (TypeScript)
   db/migrations/     Hand-written SQL migrations, the schema's source of truth
-  src/db/            Connection pool, embedded Postgres, migrator, generated types
-  src/scripts/       CLI scripts: db:migrate, db:reset, db:codegen
+  src/graphql/       Schema (SDL), resolvers, DataLoaders, transaction plugin, scalars
+  src/repositories/  All SQL: filters, keyset pagination, board columns, summary, moveTask
+  src/auth/          Access tokens (JWT via jose)
+  src/db/            Connection pool, embedded Postgres, migrator, seed data, generated types
+  src/scripts/       CLI scripts: db:migrate, db:seed, db:reset, db:serve, db:codegen
   test/              Integration tests against real (embedded) Postgres
 docs/                Design docs, critique, RFC, tech stack rationale
 ```
@@ -56,6 +60,7 @@ docs/                Design docs, critique, RFC, tech stack rationale
 
 - [Tech stack choice](docs/tech-stack-choice.md): what every tool is, why we chose it, and what we turned down.
 - [Part 1: System design](docs/part1/README.md): data model (GraphQL + SQL), technical documentation, critique.
+- [Part 2: Implementation](docs/part2/README.md): the GraphQL API and the task board, with design explanations.
 
 ## Assumptions
 
