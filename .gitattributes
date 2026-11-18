@@ -5,6 +5,10 @@
 # How:  Git auto-detects text files and normalizes them to LF on commit.
 * text=auto eol=lf
 
+# Raw Claude Code session logs (the AI transcript deliverable) are committed
+# byte for byte, so Git must never rewrite their line endings.
+docs/ai-transcript/raw/** -text
+
 # Windows batch scripts are the one exception — cmd.exe expects CRLF.
 *.cmd text eol=crlf
 *.bat text eol=crlf
