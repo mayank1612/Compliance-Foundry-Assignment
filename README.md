@@ -8,7 +8,7 @@ A simplified Linear/Jira-style platform built for the Compliance Foundry Senior 
 
 The design documents, AI critique and RFC sit alongside the code.
 
-> **Status:** all three parts are done. The AI transcript and prompting-strategy notes are the last deliverable.
+> **Status:** all deliverables are done. `npm run check` passes (55 API tests, 14 web tests).
 
 ![The task board: a 2,500-task project with summary tiles and the priority chart](docs/part2/images/board-light.png)
 
@@ -58,7 +58,7 @@ api/                 Node.js GraphQL API (TypeScript)
 web/                 React task board (Vite, Apollo Client, Tailwind, dnd-kit, Recharts)
   src/features/board/  TaskBoard (container), columns, cards, filters, summary, chart
   src/apollo/        Client + normalized cache (per-column pagination merge)
-docs/                Design docs, critique, RFC, tech stack rationale
+docs/                Design docs, critique, RFC, tech stack rationale, AI transcript
 ```
 
 ## Documents
@@ -67,8 +67,11 @@ docs/                Design docs, critique, RFC, tech stack rationale
 - [Part 1: System design](docs/part1/README.md): data model (GraphQL + SQL), technical documentation, critique.
 - [Part 2: Implementation](docs/part2/README.md): the GraphQL API and the task board, with design explanations.
 - [Part 3: RFC — a fast task board for large projects](docs/part3/rfc-fast-task-board.md): problem metrics, options, plan, targets, rollout.
+- [AI transcript and prompting strategy](docs/ai-transcript/README.md): the session logs and how the AI was prompted and checked.
 
 ## Assumptions
 
 - "Organization" and "workspace" are the same tenant concept; the code and docs say "organization".
 - Authentication is out of scope. Seeded users get signed development tokens, and authorization is fully enforced.
+- The demo data has 3 organizations, users in every role, and one project with about 2,500 tasks for the large-board case.
+- Timings come from embedded Postgres on a laptop. Ratios are meaningful; absolute numbers are not production figures.
