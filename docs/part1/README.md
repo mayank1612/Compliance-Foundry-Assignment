@@ -30,4 +30,4 @@
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | AI critique (raw, unedited)    | [`ai-critique.md`](ai-critique.md): an independent agent that read only the six schema files. Includes its exact prompt                                                                              |
 | Verification of the critique   | [`critique-verification.md`](critique-verification.md): every finding checked against the code, 14 probes on a 20,000-task seed, and Postgres locking rules. 16 confirmed, 3 partly correct, 0 wrong |
-| Our assessment (500–750 words) | `critique-analysis.md`: _pending_                                                                                                                                                                    |
+| Our assessment (500–750 words) | [`critique-analysis.md`](critique-analysis.md): agree/disagree, what it missed, what to fix first and why                                                                                            |
