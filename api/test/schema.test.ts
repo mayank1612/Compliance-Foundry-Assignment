@@ -256,7 +256,7 @@ describe('integrity: constraints, composite keys, triggers', () => {
     expect(first.createdBy).toBe(id.carol); // column default = the requesting user
   });
 
-  it('keeps status_category and completed_at in sync with moves and category edits', async () => {
+  it('keeps status_category and completed_at in sync with moves; freezes the category of a used status', async () => {
     const projectId = await insertProject(id.acme, 'SYNC');
     const task = await createTaskAs(id.carol, { organizationId: id.acme, projectId });
     const moveTo = async (status: string) =>
@@ -273,19 +273,25 @@ describe('integrity: constraints, composite keys, triggers', () => {
 
     expect(await moveTo('In Progress')).toEqual({ statusCategory: 'started', completedAt: null });
 
-    // An admin re-categorises "In Progress" as completed: its tasks follow.
-    await db
-      .updateTable('taskStatuses')
-      .set({ category: 'completed' })
-      .where('id', '=', await statusIdOf(projectId, 'In Progress'))
-      .execute();
-    const after = await db
-      .selectFrom('tasks')
-      .select(['statusCategory', 'completedAt'])
-      .where('id', '=', task.id)
-      .executeTakeFirstOrThrow();
-    expect(after.statusCategory).toBe('completed');
-    expect(after.completedAt).toBeInstanceOf(Date);
+    // Schema v2 (0006, findings C1/C2): a status that still has tasks cannot change
+    // category — v1 silently rewrote completion times and raced with moves.
+    const recategorise = async (status: string) =>
+      db
+        .updateTable('taskStatuses')
+        .set({ category: 'completed' })
+        .where('id', '=', await statusIdOf(projectId, status))
+        .execute();
+    await expectPgError(recategorise('In Progress'), PG.checkViolation, /still has tasks/);
+    // An unused status can still be re-categorised freely.
+    await expect(recategorise('Backlog')).resolves.toBeDefined();
+  });
+
+  it('caps card-order keys far below the index entry limit', async () => {
+    await expectPgError(
+      createTaskAs(id.carol, { organizationId: id.acme, projectId: id.web, rank: 'a'.repeat(256) }),
+      PG.checkViolation,
+      /tasks_rank_length/,
+    );
   });
 
   it('refuses cross-tenant and cross-project references, even without RLS', async () => {
@@ -606,7 +612,9 @@ describe('access control: tenant isolation and roles', () => {
     await expectPgError(
       createTaskAs(id.dave, { organizationId: id.acme, projectId: id.web }),
       PG.insufficientPrivilege,
-      /row-level security/,
+      // Since v2 the insert trigger's membership check refuses first; the RLS
+      // WITH CHECK behind it would refuse with the same code.
+      /not allowed to create tasks/,
     );
     // UPDATE on a visible-but-not-writable row is silently skipped (0 rows);
     // the API maps that to FORBIDDEN.
@@ -639,11 +647,45 @@ describe('access control: tenant isolation and roles', () => {
       ),
       PG.insufficientPrivilege,
     );
-    // …and a member cannot write into a tenant they don't belong to.
-    await expectPgError(
-      createTaskAs(id.carol, { organizationId: id.globex, projectId: id.ops }),
-      PG.foreignKeyViolation, // the Globex status is invisible to carol → rejected
+    // …and a member cannot write into a tenant they don't belong to. Since v2
+    // (finding SEC3) this is refused BEFORE the privileged trigger touches the
+    // other tenant's project, and the message names none of its ids.
+    const intruder = createTaskAs(id.carol, { organizationId: id.globex, projectId: id.ops });
+    await expectPgError(intruder, PG.insufficientPrivilege, /not allowed to create tasks/);
+    const message = await intruder.then(
+      () => '',
+      (e: unknown) => (e as Error).message,
     );
+    expect(message).not.toContain(id.ops);
+    expect(message).not.toContain(await statusIdOf(id.ops, 'Todo'));
+  });
+
+  it('adds people to an organization only through privileged paths (no direct inserts)', async () => {
+    // v2 (finding SEC1): not even an admin may insert a membership — that added
+    // people without their consent. Invitations will replace it.
+    const stranger = await insertUser('stranger');
+    await expectPgError(
+      as(id.bob, (trx) =>
+        trx
+          .insertInto('organizationMembers')
+          .values({ organizationId: id.acme, userId: stranger, role: 'viewer' })
+          .execute(),
+      ),
+      PG.insufficientPrivilege,
+    );
+  });
+
+  it('does not let the API role execute functions created by later migrations', async () => {
+    // v2 (finding SEC4b): global default privileges, not the per-schema form.
+    await sql`create function app.later_migration_probe() returns int language sql as 'select 1'`.execute(
+      db,
+    );
+    const { rows } = await sql<{ allowed: boolean }>`
+      select has_function_privilege('app_user', 'app.later_migration_probe()', 'EXECUTE') as allowed`.execute(
+      db,
+    );
+    expect(rows[0]?.allowed).toBe(false);
+    await sql`drop function app.later_migration_probe()`.execute(db);
   });
 
   it('lets admins manage members, but only owners manage owners', async () => {

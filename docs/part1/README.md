@@ -20,6 +20,8 @@
 
 **Schema v1 is frozen** (git tag `schema-v1`): the Task 1.3 critique reviews exactly this version, and fixes ship as new migrations (`0006_…`).
 
+**Schema v2** ([`0006_critique_fixes.sql`](../../api/db/migrations/0006_critique_fixes.sql), tag `schema-v2`) applies the fixes prioritised in Task 1.3. See [`schema-changelog.md`](schema-changelog.md).
+
 ## Task 1.2: Technical documentation
 
 [`technical-design.md`](technical-design.md) covers data model rationale and an entity-relationship diagram, query patterns (with verified query plans), indexing and performance, multi-tenancy isolation, and migration strategy.
