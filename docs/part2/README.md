@@ -26,4 +26,39 @@ Run it with `npm run setup` then `npm run dev`. GraphiQL is at http://localhost:
 
 ## Task 2.2: Frontend Task Board
 
-_Next._
+| Deliverable                         | Where                                                                                                                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| React component (TypeScript, hooks) | [`web/src/features/board/TaskBoard.tsx`](../../web/src/features/board/TaskBoard.tsx) and its children in the same folder                                                                   |
+| Tests                               | Unit tests for filters and drag-and-drop maths, a real-cache test of the optimistic move, and component tests for every state ([`web/src/**/*.test.ts(x)`](../../web/src/features/board/)) |
+
+Run `npm run dev`, then open http://localhost:5173. Pick a project and a "view as" user in the header.
+
+| Light, unfiltered                              | Dark, filtered (urgent + high, overdue only)                   |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| ![Board in light mode](images/board-light.png) | ![Filtered board in dark mode](images/board-dark-filtered.png) |
+
+### State management and component architecture
+
+**One container, presentational children.** `TaskBoard` owns the filters, two queries (`Board`: columns with their first page; `BoardSummary`: counts and chart data) and the move action. `FilterBar`, `SummaryPanel`, `Board`, `BoardColumn` and `TaskCard` receive props and raise callbacks. Their only state is local UI state, such as an open dropdown, a dragged card or a "load more" spinner.
+
+**Each kind of state has one home, and there's no global store:**
+
+- **Server data** lives in Apollo's normalised cache: each task and column is stored once by id. A column's pages, whether from the board query or that column's "load more" (`taskStatus(id)`), merge into one list.
+- **Project and filters** live in the URL, read through `useSyncExternalStore`. Links are shareable, and Back undoes a filter.
+- **The session** ("view as") is React context. Switching user resets the Apollo cache, so one user's data never shows for another.
+
+**Moves never refetch the board.** A drop updates the card optimistically and edits only the two affected cached lists. It adds the card only to filtered views that contained it, then refetches just the small summary. If the server refuses, Apollo discards the optimistic layer and the card snaps back.
+
+**Every state is handled:**
+
+- **First load:** a skeleton.
+- **Filter changes:** the previous board stays on screen, dimmed.
+- **Errors:** a retryable error state.
+- **Empty:** "no tasks yet" is told apart from "no matches", which offers Clear filters.
+- **Viewers:** a read-only board.
+
+**Accessibility and performance:**
+
+- **Accessibility:** drag-and-drop works from the keyboard, with screen-reader announcements. The chart has a table equivalent, and overdue is never shown by colour alone.
+- **Colours:** checked with a palette validator in light and dark mode.
+- **Performance:** the chart is code-split, which cuts initial JavaScript from 892 kB to 488 kB.

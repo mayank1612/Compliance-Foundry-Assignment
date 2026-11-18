@@ -25,5 +25,11 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    // Each test file runs in its own process with its own PGlite (a full Postgres
+    // compiled to WebAssembly — several hundred MB while compiling). Unbounded
+    // parallelism ran a worker out of memory ("Fatal process out of memory: Zone")
+    // on a laptop that was also running the dev servers. Three at a time stays fast
+    // and fits ordinary dev machines and CI runners.
+    maxWorkers: 3,
   },
 });

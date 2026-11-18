@@ -1,10 +1,12 @@
-// What:  ESLint flat config for the whole monorepo (api/ now, web/ later).
+// What:  ESLint flat config for the whole monorepo (api/ and web/).
 // Why:   type-aware linting catches bugs the compiler allows — floating promises
 //        (a forgotten `await` on a DB write), unsafe `any` flowing out of JSON,
-//        misused async callbacks.
+//        misused async callbacks; in web/, broken hook rules and stale effects.
 // Who:   run by `npm run lint`, by `npm run check`, and in CI.
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -20,6 +22,7 @@ export default defineConfig(
       '**/.pglite/**',
       'api/src/db/types.ts',
       'api/src/graphql/generated/**',
+      'web/src/gql/**',
     ],
   },
 
@@ -44,6 +47,14 @@ export default defineConfig(
   // Plain JS config files (like this one) are not in any tsconfig, so type-aware
   // rules cannot run on them.
   { files: ['**/*.js', '**/*.mjs'], extends: [tseslint.configs.disableTypeChecked] },
+
+  // React app: the Rules of Hooks + React Compiler-era checks (stale deps, setState
+  // in effects, impure renders), Fast Refresh boundaries, and browser globals.
+  {
+    files: ['web/src/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat['recommended-latest'], reactRefresh.configs.vite],
+    languageOptions: { globals: { ...globals.browser } },
+  },
 
   // Tests may assert "this is present" with `!`: if the assumption is wrong the
   // test fails loudly at that line, which is exactly what a test should do.

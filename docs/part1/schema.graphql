@@ -518,6 +518,12 @@ type Query {
   organization(slug: String!): Organization
   project(id: ID!): Project
   task(id: ID!): Task
+  """
+  One board column. Lets a client load more cards for a single column: the
+  column is cached by id, so its pages merge with the board query's list.
+  (Added in Part 2 — see docs/part1/schema-changelog.md.)
+  """
+  taskStatus(id: ID!): TaskStatus
   "Look a task up by its human identifier, e.g. (`acme`, `WEB-42`)."
   taskByIdentifier(organizationSlug: String!, identifier: String!): Task
   """

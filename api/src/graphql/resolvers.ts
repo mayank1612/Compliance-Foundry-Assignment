@@ -80,6 +80,10 @@ export const resolvers: Resolvers = {
 
     task: (_root, { id }, ctx) => (isUuid(id) ? getTask(ctx.db, id) : null),
 
+    // A single column, so a client can page one column ("load more") without
+    // re-running every column's query (RLS: another tenant's status → null).
+    taskStatus: (_root, { id }, ctx) => (isUuid(id) ? ctx.loaders.status.load(id) : null),
+
     myTasks: async (_root, args, ctx) => {
       const viewerId = requireViewer(ctx);
       const parsed = parseArgs(TaskListArgsSchema, args);

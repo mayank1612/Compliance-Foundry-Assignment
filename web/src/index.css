@@ -1,0 +1,68 @@
+/*
+ * index.css — Tailwind + the app's design tokens.
+ *
+ * Tokens are CSS variables (light by default, dark under prefers-color-scheme), and
+ * Tailwind utilities reference them by ROLE (bg-surface, text-ink-2, bg-series…),
+ * so components never hard-code a hex value or need `dark:` variants.
+ * Values: the dataviz reference palette — chart series blue validated for contrast
+ * and lightness on both surfaces; status "critical" reserved for overdue, and
+ * always paired with an icon + label (never color alone).
+ */
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec; /* wells: board columns, hover */
+  --ink: #0b0b0b; /* primary text */
+  --ink-2: #52514e; /* secondary text */
+  --muted: #898781; /* placeholders, axis-like text */
+  --line: #e1e0d9; /* hairlines */
+  --line-strong: #c3c2b7;
+  --accent: #2a78d6; /* interactive (focus, selected) */
+  --series-1: #2a78d6; /* chart: the single data series */
+  --critical: #d03b3b; /* status: overdue */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232322;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --line: #2c2c2a;
+    --line-strong: #383835;
+    --accent: #3987e5;
+    --series-1: #3987e5;
+    --critical: #d03b3b;
+  }
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-series: var(--series-1);
+  --color-critical: var(--critical);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+  @apply bg-page font-sans text-ink antialiased;
+}
+
+/* One visible focus style everywhere (keyboard users, incl. keyboard drag-and-drop). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

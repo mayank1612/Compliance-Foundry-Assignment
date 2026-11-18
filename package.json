@@ -5,26 +5,30 @@
   "description": "Multi-tenant project-management platform (take-home): Postgres schema, Node GraphQL API, React task board.",
   "type": "module",
   "workspaces": [
-    "api"
+    "api",
+    "web"
   ],
   "engines": {
     "node": ">=22.12"
   },
   "scripts": {
     "setup": "npm run db:migrate -w api && npm run db:seed -w api",
-    "dev": "npm run dev -w api",
+    "dev": "concurrently --kill-others-on-fail --names api,web --prefix-colors blue,green \"npm run dev -w api\" \"npm run dev -w web\"",
     "db:serve": "npm run db:serve -w api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run db:codegen -w api -- --verify && npm run gql:codegen -w api -- --check && npm test"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run db:codegen -w api -- --verify && npm run gql:codegen -w api -- --check && npm run gql:codegen -w web -- --check && npm test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.7",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.8",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "typescript": "~6.0.3",

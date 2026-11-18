@@ -1,0 +1,17 @@
+// What:  TypeScript settings for the web workspace (React, bundled by Vite).
+// Why:   inherits the repo-wide strict baseline; switches module resolution to
+//        "Bundler" (Vite resolves imports, so no `.js` extensions) and adds the
+//        DOM + JSX settings a browser app needs.
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    // Vite's import.meta.env types + jest-dom's matchers in tests.
+    "types": ["vite/client", "@testing-library/jest-dom/vitest"],
+    "noEmit": true
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts", "codegen.ts"]
+}

@@ -189,6 +189,12 @@ export type Query = {
   organization?: Maybe<Organization>;
   project?: Maybe<Project>;
   task?: Maybe<Task>;
+  /**
+   * One board column. Lets a client load more cards for a single column: the
+   * column is cached by id, so its pages merge with the board query's list.
+   * (Added in Part 2 — see docs/part1/schema-changelog.md.)
+   */
+  taskStatus?: Maybe<TaskStatus>;
   /** The signed-in user. UNAUTHENTICATED without a valid token. */
   viewer: Viewer;
 };
@@ -214,6 +220,11 @@ export type QueryProjectArgs = {
 
 
 export type QueryTaskArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryTaskStatusArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -611,6 +622,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   organization?: Resolver<Maybe<ResolversTypes['Organization']>, ParentType, ContextType, RequireFields<QueryOrganizationArgs, 'slug'>>;
   project?: Resolver<Maybe<ResolversTypes['Project']>, ParentType, ContextType, RequireFields<QueryProjectArgs, 'id'>>;
   task?: Resolver<Maybe<ResolversTypes['Task']>, ParentType, ContextType, RequireFields<QueryTaskArgs, 'id'>>;
+  taskStatus?: Resolver<Maybe<ResolversTypes['TaskStatus']>, ParentType, ContextType, RequireFields<QueryTaskStatusArgs, 'id'>>;
   viewer?: Resolver<ResolversTypes['Viewer'], ParentType, ContextType>;
 }>;
 

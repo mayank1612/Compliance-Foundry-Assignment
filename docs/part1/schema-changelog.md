@@ -15,6 +15,10 @@ Applies the "fix first" items from [`critique-analysis.md`](critique-analysis.md
 | `CHECK (octet_length(rank) <= 255)`                                                                                                                           | C3 (key length)                                | Test                                                                                                                                           |
 | `ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC` (global form)                                                                              | SEC4b                                          | Test: a function created later isn't executable by `app_user`                                                                                  |
 
+## API contract addition (Part 2)
+
+`Query.taskStatus(id: ID!): TaskStatus` was added to the design SDL and the API. The board needs to load more cards for **one** column; re-running the board query with an `after` cursor would apply one column's cursor to every column. With the column addressable by id, Apollo merges its next page into the same cached list (tested in `api/test/graphql.test.ts`).
+
 ## Handled in the API (Part 2), not the schema
 
 | Finding                                            | How                                                                                           |

@@ -125,6 +125,36 @@ describe('board queries', () => {
     expect(large).toBeLessThanOrEqual(15);
   });
 
+  it('loads more of ONE column through taskStatus(id), continuing exactly where the board stopped', async () => {
+    const order = await columnOrder('Done');
+    // First page as the board shows it, then the next page via the single-column field.
+    const board = await t.gql<{ project: { statuses: { id: string; tasks: TaskPage }[] } }>(
+      'carol',
+      `query ($p: ID!) { project(id: $p) { statuses { id tasks(first: 10) {
+         edges { node { id } } pageInfo { hasNextPage endCursor } } } } }`,
+      { p: web },
+    );
+    const firstPage = board.data!.project.statuses.find((s) => s.id === statusId.Done)!.tasks;
+    const more = await t.gql<{ taskStatus: { tasks: TaskPage } }>(
+      'carol',
+      `query ($s: ID!, $after: String) { taskStatus(id: $s) { tasks(first: 10, after: $after) {
+         edges { node { id } } pageInfo { hasNextPage endCursor } } } }`,
+      { s: statusId.Done, after: firstPage.pageInfo.endCursor },
+    );
+    const ids = [...firstPage.edges, ...more.data!.taskStatus.tasks.edges].map((e) => e.node.id);
+    expect(ids).toEqual(order.slice(0, 20));
+
+    // Another tenant's column is invisible.
+    const foreign = await t.gql<{ taskStatus: unknown }>(
+      'frank',
+      'query ($s: ID!) { taskStatus(id: $s) { id } }',
+      {
+        s: statusId.Done,
+      },
+    );
+    expect(foreign.data).toEqual({ taskStatus: null });
+  });
+
   it('pages a column in board order with no gaps or duplicates', async () => {
     const seen: string[] = [];
     let after: string | null = null;

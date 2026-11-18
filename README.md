@@ -8,7 +8,9 @@ A simplified Linear/Jira-style platform built for the Compliance Foundry Senior 
 
 The design documents, AI critique and RFC sit alongside the code.
 
-> **Status:** Part 1 (data model, docs, critique) and Task 2.1 (GraphQL API) are done; Task 2.2 (board UI) and Part 3 (RFC) are in progress.
+> **Status:** Parts 1 and 2 are done (data model, docs, critique, GraphQL API, task board). Part 3 (RFC) is in progress.
+
+![The task board: a 2,500-task project with summary tiles and the priority chart](docs/part2/images/board-light.png)
 
 ## Quick start
 
@@ -17,7 +19,7 @@ Requires **Node.js ≥ 22.12** (developed on 24.12). No database install and no 
 ```bash
 npm install
 npm run setup   # create the embedded database, apply migrations, load demo data
-npm run dev     # GraphQL API on http://localhost:4000/graphql (GraphiQL in the browser)
+npm run dev     # API on :4000 + task board on http://localhost:5173 (open this)
 npm run check   # typecheck, lint, format, generated-types check, tests
 ```
 
@@ -53,6 +55,9 @@ api/                 Node.js GraphQL API (TypeScript)
   src/db/            Connection pool, embedded Postgres, migrator, seed data, generated types
   src/scripts/       CLI scripts: db:migrate, db:seed, db:reset, db:serve, db:codegen
   test/              Integration tests against real (embedded) Postgres
+web/                 React task board (Vite, Apollo Client, Tailwind, dnd-kit, Recharts)
+  src/features/board/  TaskBoard (container), columns, cards, filters, summary, chart
+  src/apollo/        Client + normalized cache (per-column pagination merge)
 docs/                Design docs, critique, RFC, tech stack rationale
 ```
 
