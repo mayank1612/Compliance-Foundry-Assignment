@@ -1,6 +1,6 @@
 # AI Transcript and Prompting Strategy
 
-_The commentary below was drafted by Claude at the author's request, from the actual course of the sessions. The author reviewed it and is responsible for it._
+_The commentary below was drafted by Claude at the author's request, from the actual course of the sessions recorded here._
 
 ## The logs
 
