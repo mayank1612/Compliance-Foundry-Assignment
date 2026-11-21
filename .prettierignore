@@ -15,6 +15,9 @@ docs/part1/ai-critique.md
 
 # Claude Code /export output, committed unedited as the AI transcript deliverable.
 docs/ai-transcript/main-session.md
+# Full main session, rebuilt in /export layout from the raw log (the real /export
+# is partial because the session was compacted). Kept byte-for-byte as generated.
+docs/ai-transcript/main-session-full.md
 docs/ai-transcript/side-session-query-layer-spikes.md
 docs/ai-transcript/raw/
 
